@@ -1,8 +1,12 @@
+"use client"
 import AuroraButton from "@/components/aurora-button"
 import LaptopMockup from "@/components/laptop-mockup"
 import WavyGridBackground from "@/components/wavy-grid-background"
+import { useRouter } from "next/navigation"
+
 
 export default function Home() {
+  const router=useRouter();
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-start overflow-hidden">
       <WavyGridBackground squareSize={3} maxOpacity={0.2} gridGap={10} height={1000} />
@@ -21,7 +25,7 @@ export default function Home() {
           Make No-Code Agentic Workflows
         </p>
         <div className="mt-8 flex gap-6 items-center justify-center">
-          <AuroraButton label="Get Started" beamColor="59, 130, 246" duration="4s" />
+          <AuroraButton  onClick={()=>router.push("/builder")}  label="Get Started" beamColor="59, 130, 246" duration="4s" />
           <AuroraButton label="Learn More" variant="inverted" beamColor="236, 72, 153" duration="10s" />
         </div>
         <div className="w-full mt-12 mb-12">
