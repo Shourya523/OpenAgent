@@ -186,35 +186,57 @@
   background-color: #27272a !important;
 }
 
-/* Base styles for ALL nodes */
+/* Base styles for ALL nodes (transparent to support custom node templates) */
 .react-flow__node {
-  background-color: #18181b !important;
-  /* Dark background */
-  color: #f4f4f5 !important;
-  /* Text color */
-  border: 1px solid #3f3f46 !important;
-  /* Border color */
-  border-radius: 8px !important;
-  font-size: 14px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
 }
 
 /* Edge label text color & typography */
 .react-flow__edge-text {
-  fill: #f4f4f5 !important;
-  /* Text color inside SVG */
-  font-size: 12px !important;
-  font-weight: 500 !important;
+  fill: #d4d4d8 !important; /* Zinc-300 text */
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  font-family: var(--font-mono), monospace !important;
+  letter-spacing: 0.05em !important;
 }
 
 /* Background badge behind edge label text */
 .react-flow__edge-textbg {
-  fill: #18181b !important;
-  /* Dark background behind edge text */
-  stroke: #3f3f46 !important;
-  /* Border around the edge text box */
+  fill: #09090b !important; /* Zinc-950 background */
+  stroke: #27272a !important; /* Zinc-800 border */
   stroke-width: 1px !important;
-  rx: 6px !important;
-  /* Rounded corners (X radius) */
-  ry: 6px !important;
-  /* Rounded corners (Y radius) */
+  rx: 8px !important; /* Larger rounded corners */
+  ry: 8px !important;
 }
+
+/* Custom Scrollbar Styles matching the OpenAgent themed oklch colors (blue/indigo accent) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(0.12 0 0); /* Slightly darker than background */
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.35 0.12 250 / 60%); /* Translucent blue/indigo accent */
+  border-radius: 9999px;
+  border: 2px solid oklch(0.12 0 0);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.48 0.18 250); /* Vivid theme blue on hover */
+  border: 2px solid oklch(0.12 0 0);
+  background-clip: padding-box;
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.35 0.12 250 / 60%) oklch(0.12 0 0);
+}
