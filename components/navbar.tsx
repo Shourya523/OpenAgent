@@ -33,7 +33,7 @@ export default function Navbar() {
     <div className="fixed top-6 left-0 right-0 z-50 flex items-center justify-center px-4 md:px-8 pointer-events-none select-none animate-in fade-in slide-in-from-top-4 duration-300">
       <div className="w-full max-w-5xl flex items-center justify-center gap-3 md:gap-4 pointer-events-auto">
         {/* Main Capsule Navbar */}
-        <div className="flex-1 h-14 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/80 rounded-full px-6 flex items-center justify-between text-white shadow-2xl relative">
+        <div className="flex-1 h-14 bg-zinc-950/75 backdrop-blur-md border border-zinc-900/60 rounded-full px-6 flex items-center justify-between text-white shadow-2xl relative">
           {/* Brand Logo & Name */}
           <Link href="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
             {/* OpenAgent Styled SVG Logo (glowing connection nodes) */}
@@ -42,51 +42,58 @@ export default function Navbar() {
                 {/* Glowing paths */}
                 <path d="M6 12L12 6M12 6L18 12M12 6V18M6 12L12 18M12 18L18 12" stroke="url(#logo-grad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 {/* Nodes */}
-                <circle cx="12" cy="6" r="2.5" fill="#22d3ee" />
-                <circle cx="6" cy="12" r="2.5" fill="#38bdf8" />
-                <circle cx="18" cy="12" r="2.5" fill="#c084fc" />
-                <circle cx="12" cy="18" r="2.5" fill="#f472b6" />
+                <circle cx="12" cy="6" r="2.5" fill="#ffffff" />
+                <circle cx="6" cy="12" r="2.5" fill="#93c5fd" />
+                <circle cx="18" cy="12" r="2.5" fill="#3b82f6" />
+                <circle cx="12" cy="18" r="2.5" fill="#1d4ed8" />
                 <defs>
                   <linearGradient id="logo-grad" x1="6" y1="6" x2="18" y2="18" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#22d3ee" />
-                    <stop offset="0.5" stopColor="#c084fc" />
-                    <stop offset="1" stopColor="#f472b6" />
+                    <stop stopColor="#ffffff" />
+                    <stop offset="0.5" stopColor="#3b82f6" />
+                    <stop offset="1" stopColor="#1d4ed8" />
                   </linearGradient>
                 </defs>
               </svg>
             </div>
             <div className="flex flex-col items-start leading-none gap-0.5">
-              <span className="font-black text-sm md:text-base tracking-tight bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 text-transparent">
+              <span className="font-black text-sm md:text-base tracking-tight bg-clip-text bg-gradient-to-r from-white via-blue-200 to-blue-500 text-transparent">
                 OpenAgent
               </span>
-              <span className="text-[7.5px] md:text-[8px] font-black tracking-widest bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 text-transparent uppercase opacity-95">
-                ~ GDG JIIT 128
+              <span className="text-[7.5px] md:text-[8px] font-black tracking-widest bg-clip-text bg-gradient-to-r from-blue-300 to-blue-600 text-transparent uppercase opacity-95">
+                ~ GDG    JIIT 128
               </span>
             </div>
           </Link>
 
           {/* Navigation Links */}
-          <div className="hidden sm:flex items-center gap-6 md:gap-8 text-zinc-400 font-medium text-xs md:text-sm">
+          <div className="hidden sm:flex items-center gap-1.5 md:gap-3 text-zinc-400 font-medium text-xs md:text-sm">
             <Link
               href="/"
               onClick={(e) => handleNavClick(e, "hero")}
-              className={`transition-colors cursor-pointer ${
-                pathname === "/" ? "text-zinc-100 font-semibold" : "hover:text-zinc-150"
+              className={`py-1 px-3 rounded-full transition-all duration-300 cursor-pointer ${
+                pathname === "/" 
+                  ? "text-blue-400 bg-blue-950/20 border border-blue-900/40 shadow-[0_0_12px_rgba(59,130,246,0.12)] font-bold" 
+                  : "hover:text-zinc-200"
               }`}
             >
               Home
             </Link>
             <Link
-              href="/#features"
-              onClick={(e) => handleNavClick(e, "features")}
-              className="hover:text-zinc-100 transition-colors cursor-pointer"
+              href="/features"
+              className={`py-1 px-3 rounded-full transition-all duration-300 cursor-pointer ${
+                pathname === "/features" 
+                  ? "text-blue-400 bg-blue-950/20 border border-blue-900/40 shadow-[0_0_12px_rgba(59,130,246,0.12)] font-bold" 
+                  : "hover:text-zinc-200"
+              }`}
             >
               Features
             </Link>
             <Link
               href="/builder"
-              className={`transition-colors cursor-pointer ${
-                pathname === "/builder" ? "text-blue-400 font-bold" : "hover:text-zinc-100"
+              className={`py-1 px-3 rounded-full transition-all duration-300 cursor-pointer ${
+                pathname === "/builder" 
+                  ? "text-blue-400 bg-blue-950/20 border border-blue-900/40 shadow-[0_0_12px_rgba(59,130,246,0.12)] font-bold" 
+                  : "hover:text-zinc-200"
               }`}
             >
               Builder
@@ -94,7 +101,7 @@ export default function Navbar() {
             <Link
               href="/#contact"
               onClick={(e) => handleNavClick(e, "contact")}
-              className="hover:text-zinc-100 transition-colors cursor-pointer"
+              className="py-1 px-3 rounded-full transition-all duration-300 hover:text-zinc-200 cursor-pointer"
             >
               Contact
             </Link>

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { useDnD } from "./DnDContext"
-import { Play, Sparkles, Cpu, Database, GitFork, Download, Terminal, Search, Info } from "lucide-react"
+import { Play, Sparkles, Cpu, Database, GitFork, Download, Terminal, Search, Info, Link2 } from "lucide-react"
 
 const NODE_TYPES = [
   {
@@ -60,6 +60,15 @@ const NODE_TYPES = [
     desc: "Routes workflow paths based on logic operators."
   },
   {
+    type: "default",
+    label: "API Connector",
+    iconColor: "text-orange-400 bg-orange-950/15 border-orange-900/30",
+    hoverColor: "hover:border-orange-500/30 hover:shadow-[0_0_15px_rgba(249,115,22,0.15)] hover:bg-zinc-900/20",
+    indicatorBg: "bg-orange-500",
+    icon: Link2,
+    desc: "Performs custom GET/POST HTTP API requests to third-party services."
+  },
+  {
     type: "output",
     label: "Output Node",
     iconColor: "text-indigo-400 bg-indigo-950/15 border-indigo-900/30",
@@ -86,7 +95,7 @@ export default function Sidebar() {
   )
 
   return (
-    <aside className="w-64 p-5 bg-zinc-950 border-r border-zinc-900 text-zinc-150 flex flex-col gap-5 select-none shrink-0 h-full text-left">
+    <aside className="absolute top-4 left-4 bottom-4 z-20 w-60 p-4 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl text-zinc-150 flex flex-col gap-4 select-none shadow-2xl overflow-y-auto text-left">
       {/* Sidebar Header */}
       <div className="flex flex-col gap-1">
         <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">

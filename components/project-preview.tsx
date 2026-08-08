@@ -33,6 +33,19 @@ export default function ProjectPreview() {
 
   const logContainerRef = useRef<HTMLDivElement>(null)
   const previewScrollContainerRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const [canvasWidth, setCanvasWidth] = useState(500)
+
+  useEffect(() => {
+    if (!canvasRef.current) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setCanvasWidth(entry.contentRect.width || 500)
+      }
+    })
+    observer.observe(canvasRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   // Simulation steps sequence
   useEffect(() => {
@@ -169,6 +182,8 @@ export default function ProjectPreview() {
     setSelectedNodeId(null)
     setLogs(["▶ Canvas state reset. Trigger nodes loaded."])
   }
+
+  const scaleFactor = canvasWidth < 500 ? canvasWidth / 500 : 1
 
   return (
     <div className="w-full text-zinc-300 font-sans select-none bg-zinc-950 min-h-[500px] flex flex-col text-left h-full relative overflow-hidden">
@@ -380,58 +395,72 @@ export default function ProjectPreview() {
             </div>
 
             {/* Builder Canvas Area Layout */}
-            <div className="flex-grow flex flex-col md:flex-row relative min-h-[300px] border-b border-zinc-900 overflow-hidden bg-zinc-950">
+            <div 
+              ref={canvasRef}
+              className="flex-grow flex flex-col md:flex-row relative min-h-[250px] border-b border-zinc-900 overflow-hidden bg-zinc-950"
+            >
               {/* Canvas grid background */}
               <div className="absolute inset-0 bg-[radial-gradient(#1f1f23_1px,transparent_1px)] [background-size:12px_12px] opacity-60 pointer-events-none" />
 
-              {/* Dynamic Connecting SVG Paths */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                {nodes.length >= 2 && (
-                  <>
-                    {/* Trigger to node-2 */}
-                    <path d="M100 120 L190 120" stroke="#27272a" strokeWidth="1.5" fill="none" />
-                    {isRunning && simStep >= 2 && (
-                      <circle cx="145" cy="120" r="2.5" fill="#60a5fa" className="animate-ping" />
-                    )}
+              {/* Scaling Wrapper for Mobile Responsiveness */}
+              <div 
+                style={{ 
+                  transform: `scale(${scaleFactor})`, 
+                  transformOrigin: "top left",
+                  width: "500px",
+                  height: `${240 / scaleFactor}px`
+                }}
+                className="relative flex-grow h-full min-h-[220px]"
+              >
+                {/* Dynamic Connecting SVG Paths */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                  {nodes.length >= 2 && (
+                    <>
+                      {/* Trigger to node-2 */}
+                      <path d="M100 120 L190 120" stroke="#27272a" strokeWidth="1.5" fill="none" />
+                      {isRunning && simStep >= 2 && (
+                        <circle cx="145" cy="120" r="2.5" fill="#60a5fa" className="animate-ping" />
+                      )}
 
-                    {/* Node-2 to output */}
-                    <path d="M290 120 L360 120" stroke="#27272a" strokeWidth="1.5" fill="none" />
-                    {isRunning && simStep >= 5 && (
-                      <circle cx="325" cy="120" r="2.5" fill="#818cf8" className="animate-ping" />
-                    )}
-                  </>
-                )}
-                {/* Dynamically connecting custom items */}
-                {nodes.filter(n => n.type !== "input" && n.type !== "llm" && n.type !== "output").map((node) => (
-                  <path
-                    key={node.id}
-                    d={`M190 120 Q ${node.x + 30} 80, ${node.x + 60} ${node.y}`}
-                    stroke="#1c1c22"
-                    strokeWidth="1.2"
-                    strokeDasharray="3,3"
-                    fill="none"
-                  />
-                ))}
-              </svg>
+                      {/* Node-2 to output */}
+                      <path d="M290 120 L360 120" stroke="#27272a" strokeWidth="1.5" fill="none" />
+                      {isRunning && simStep >= 5 && (
+                        <circle cx="325" cy="120" r="2.5" fill="#818cf8" className="animate-ping" />
+                      )}
+                    </>
+                  )}
+                  {/* Dynamically connecting custom items */}
+                  {nodes.filter(n => n.type !== "input" && n.type !== "llm" && n.type !== "output").map((node) => (
+                    <path
+                      key={node.id}
+                      d={`M190 120 Q ${node.x + 30} 80, ${node.x + 60} ${node.y}`}
+                      stroke="#1c1c22"
+                      strokeWidth="1.2"
+                      strokeDasharray="3,3"
+                      fill="none"
+                    />
+                  ))}
+                </svg>
 
-              {/* Render Draggable Nodes list state */}
-              <div className="flex-grow relative h-full p-4 overflow-auto min-h-[220px]">
-                {nodes.map((node) => (
-                  <div
-                    key={node.id}
-                    onClick={() => handleSelectNode(node)}
-                    className={`absolute border rounded-xl p-2 shadow-lg w-32 cursor-pointer transition-all hover:scale-[1.02] flex flex-col gap-1 ${node.color} ${
-                      selectedNodeId === node.id ? "ring-2 ring-blue-500/80 border-blue-400" : ""
-                    }`}
-                    style={{ left: `${node.x}px`, top: `${node.y}px` }}
-                  >
-                    <div className="flex items-center justify-between text-[7px] font-bold opacity-60 border-b border-zinc-900 pb-0.5 uppercase tracking-wide">
-                      <span>{node.type}</span>
-                      <span className="w-1 h-1 rounded-full bg-current" />
+                {/* Render Draggable Nodes list state */}
+                <div className="absolute inset-0 p-4">
+                  {nodes.map((node) => (
+                    <div
+                      key={node.id}
+                      onClick={() => handleSelectNode(node)}
+                      className={`absolute border rounded-xl p-2 shadow-lg w-32 cursor-pointer transition-all hover:scale-[1.02] flex flex-col gap-1 ${node.color} ${
+                        selectedNodeId === node.id ? "ring-2 ring-blue-500/80 border-blue-400" : ""
+                      }`}
+                      style={{ left: `${node.x}px`, top: `${node.y}px` }}
+                    >
+                      <div className="flex items-center justify-between text-[7px] font-bold opacity-60 border-b border-zinc-900 pb-0.5 uppercase tracking-wide">
+                        <span>{node.type}</span>
+                        <span className="w-1 h-1 rounded-full bg-current" />
+                      </div>
+                      <span className="text-[9px] font-bold text-zinc-150 truncate">{node.label}</span>
                     </div>
-                    <span className="text-[9px] font-bold text-zinc-150 truncate">{node.label}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
               {/* Mini Property edit form (displays when node clicked) */}

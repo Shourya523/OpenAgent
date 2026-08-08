@@ -19,7 +19,7 @@ import {
 import Sidebar from './Sidebar';
 import { DnDProvider, useDnD } from './DnDContext';
 import { executeWorkflow } from '../workflow/executeWorkFlows';
-import { Play, Terminal as TerminalIcon, Trash2, Save, RotateCcw, X, Settings, Activity, Sparkles, Cpu, Database, GitFork, Download } from "lucide-react";
+import { Play, Terminal as TerminalIcon, Trash2, Save, RotateCcw, X, Settings, Activity, Sparkles, Cpu, Database, GitFork, Download, Link2 } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 
 const STORAGE_KEY = 'openagent-flow-state';
@@ -28,8 +28,8 @@ let id = 0;
 const getId = () => `dndnode_${id++}`;
 
 const initialNodes: Node[] = [
-    { id: 'n1', position: { x: 250, y: 100 }, data: { label: 'Start' } },
-    { id: 'n2', position: { x: 250, y: 250 }, data: { label: 'Finish' } },
+    { id: 'n1', position: { x: 320, y: 120 }, data: { label: 'Start' } },
+    { id: 'n2', position: { x: 320, y: 300 }, data: { label: 'Finish' } },
 ];
 
 const initialEdges: Edge[] = [
@@ -69,6 +69,12 @@ const fieldOptions: Record<string, Array<{ value: string, label: string }>> = {
         { value: "markdown", label: "Markdown" },
         { value: "json", label: "JSON" },
     ],
+    method: [
+        { value: "GET", label: "GET" },
+        { value: "POST", label: "POST" },
+        { value: "PUT", label: "PUT" },
+        { value: "DELETE", label: "DELETE" },
+    ],
 };
 
 const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>> = {
@@ -82,6 +88,7 @@ const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>>
         { key: "name", label: "Node Name" },
         { key: "provider", label: "Provider" },
         { key: "model", label: "Model" },
+        { key: "apiKey", label: "Custom Gemini API Key" },
         { key: "inputVariable", label: "Input Variable" },
         { key: "systemPrompt", label: "System Prompt" },
         { key: "temperature", label: "Temperature" },
@@ -121,6 +128,15 @@ const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>>
         { key: "variable", label: "Variable to Output" },
         { key: "format", label: "Output Format" },
     ],
+
+    api: [
+        { key: "name", label: "Node Name" },
+        { key: "method", label: "HTTP Method" },
+        { key: "url", label: "API Endpoint URL (e.g. https://api.example.com/{{var}})" },
+        { key: "headers", label: "Headers JSON (e.g. {\"Authorization\": \"Bearer {{var}}\"})" },
+        { key: "payload", label: "Payload JSON (optional)" },
+        { key: "outputVariable", label: "Output Variable Name" },
+    ],
 };
 
 const getNodeConfigType = (node: Node | null | undefined) => {
@@ -135,6 +151,7 @@ const getNodeConfigType = (node: Node | null | undefined) => {
     if (label.includes('condition')) return 'condition';
     if (label.includes('input')) return 'input';
     if (label.includes('output')) return 'output';
+    if (label.includes('api')) return 'api';
 
     return typeof node?.type === 'string' ? node.type : 'default';
 };
@@ -220,6 +237,16 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
         indicatorBg = "bg-rose-500";
         glowBg = "bg-rose-500/5";
         handleShadow = "!shadow-[0_0_8px_rgba(244,63,94,0.6)]";
+    } else if (nodeType === 'api') {
+        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-orange-500/40";
+        activeColorClass = "border-orange-500 ring-2 ring-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.3)] scale-102";
+        label = "API CONNECTOR";
+        Icon = Link2;
+        labelColor = "text-orange-400";
+        handleColor = "!bg-orange-500";
+        indicatorBg = "bg-orange-500";
+        glowBg = "bg-orange-500/5";
+        handleShadow = "!shadow-[0_0_8px_rgba(249,115,22,0.6)]";
     }
 
     return (
@@ -378,6 +405,12 @@ function DnDFlow() {
         | Node<{ label?: string; [key: string]: unknown }>
         | undefined) ?? null;
 
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+    const editingNode = (nodes.find((node) => node.id === editingNodeId) as
+        | Node<{ label?: string; [key: string]: unknown }>
+        | undefined) ?? null;
+
     const handleLabelChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const newLabel = event.target.value;
         if (!selectedNode) return;
@@ -403,25 +436,26 @@ function DnDFlow() {
     }, []);
 
     const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
-        const currentLabel = (node.data?.label as string) || '';
-        const newLabel = prompt('Edit node label:', currentLabel);
-        if (newLabel !== null && newLabel.trim() !== '') {
-            setNodes((nds) =>
-                nds.map((n) => {
-                    if (n.id === node.id) {
-                        return {
-                            ...n,
-                            data: {
-                                ...n.data,
-                                label: newLabel,
-                            },
-                        };
+        setEditingNodeId(node.id);
+        setIsModalOpen(true);
+    }, []);
+
+    const updateEditingNodeData = useCallback((key: string, value: string) => {
+        if (!editingNodeId) return;
+        setNodes((nds) =>
+            nds.map((node) =>
+                node.id === editingNodeId
+                    ? {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            [key]: value,
+                        },
                     }
-                    return n;
-                })
-            );
-        }
-    }, [setNodes]);
+                    : node
+            )
+        );
+    }, [editingNodeId, setNodes]);
 
     const handleDeleteSelection = useCallback(() => {
         deleteElements({
@@ -476,11 +510,11 @@ function DnDFlow() {
     );
 
     return (
-        <div className="flex w-full h-[64vh] min-h-[500px] border border-zinc-900 rounded-2xl overflow-hidden bg-zinc-950 relative shadow-2xl">
+        <div className="w-full h-[64vh] min-h-[500px] border border-zinc-900 rounded-2xl overflow-hidden bg-zinc-950 relative shadow-2xl">
             <Sidebar />
-            <div className="flex-grow h-full relative" ref={reactFlowWrapper}>
+            <div className="w-full h-full relative" ref={reactFlowWrapper}>
                 {/* Control Action Bar */}
-                <div className="absolute top-4 right-4 z-10 flex flex-wrap items-center gap-2 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl p-2 shadow-2xl select-none">
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-wrap items-center gap-2 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl p-1.5 shadow-2xl select-none">
                     <button
                         onClick={runWorkflow}
                         disabled={isRunning}
@@ -648,7 +682,7 @@ function DnDFlow() {
             </div>
 
             {isSidebarOpen && selectedNodeData && (
-                <aside className="w-72 border-l border-zinc-900 bg-zinc-950 p-5 relative select-none shrink-0 overflow-y-auto h-full flex flex-col gap-4 text-left">
+                <aside className="absolute top-4 right-4 bottom-4 z-20 w-72 p-5 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl text-zinc-150 flex flex-col gap-4 select-none shadow-2xl overflow-y-auto scrollbar-thin text-left">
                     <button
                         onClick={() => setIsSidebarOpen(false)}
                         className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-200 text-sm cursor-pointer transition-colors p-1 hover:bg-zinc-900 rounded-md"
@@ -719,6 +753,72 @@ function DnDFlow() {
                         ))}
                     </div>
                 </aside>
+            )}
+
+            {/* Glassmorphic Settings Modal Popup Triggered on Double Click */}
+            {isModalOpen && editingNode && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
+                    <div className="bg-zinc-950 border border-zinc-900 w-full max-w-md rounded-2xl p-6 shadow-2xl relative flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200">
+                        {/* Close button */}
+                        <button
+                            onClick={() => setIsModalOpen(false)}
+                            className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-200 text-sm cursor-pointer transition-colors p-1 hover:bg-zinc-900 rounded-md"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        <div className="flex items-center gap-2 pb-2 border-b border-zinc-900">
+                            <Settings className="w-4 h-4 text-cyan-400" />
+                            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider">
+                                {String(editingNode.data?.label ?? 'Node Settings')}
+                            </h3>
+                        </div>
+
+                        <div className="flex flex-col gap-4 overflow-y-auto max-h-[50vh] pr-1 py-1">
+                            {(sidebarFieldsByType[getNodeConfigType(editingNode)] || []).map((field) => (
+                                <div key={field.key} className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{field.label}</label>
+                                    {fieldOptions[field.key] ? (
+                                        <select
+                                            className="w-full rounded-xl bg-zinc-900/60 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors cursor-pointer"
+                                            value={String(editingNode.data?.[field.key] ?? fieldOptions[field.key][0].value)}
+                                            onChange={(e) => updateEditingNodeData(field.key, e.target.value)}
+                                        >
+                                            {fieldOptions[field.key].map((opt) => (
+                                                <option key={opt.value} value={opt.value} className="bg-zinc-950 text-zinc-300">
+                                                    {opt.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : field.key === 'apiKey' ? (
+                                        <input
+                                            type="password"
+                                            className="w-full rounded-xl bg-zinc-900/60 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors font-medium font-mono"
+                                            placeholder="Enter Gemini API Key (Optional)"
+                                            value={String(editingNode.data?.[field.key] ?? '')}
+                                            onChange={(e) => updateEditingNodeData(field.key, e.target.value)}
+                                        />
+                                    ) : (
+                                        <input
+                                            className="w-full rounded-xl bg-zinc-900/60 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors font-medium"
+                                            value={String(editingNode.data?.[field.key] ?? '')}
+                                            onChange={(e) => updateEditingNodeData(field.key, e.target.value)}
+                                        />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-zinc-900 mt-1">
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-550 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
+                            >
+                                Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

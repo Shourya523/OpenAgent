@@ -8,6 +8,7 @@ import { executeInput } from "./executors/input";
 import { executeMemory } from "./executors/memory";
 import { executeTool } from "./executors/tool";
 import { executeCondition } from "./executors/condition";
+import { executeApi } from "./executors/api";
 
 // Helper to determine the node's semantic config type
 export const getNodeConfigType = (node: Node) => {
@@ -22,6 +23,7 @@ export const getNodeConfigType = (node: Node) => {
   if (label.includes('condition')) return 'condition';
   if (label.includes('input')) return 'input';
   if (label.includes('output')) return 'output';
+  if (label.includes('api')) return 'api';
 
   return typeof node.type === 'string' ? node.type : 'default';
 };
@@ -59,6 +61,10 @@ export async function executeNode(
 
     case "output":
       await executeOutput(node, runtime);
+      break;
+
+    case "api":
+      await executeApi(node, runtime);
       break;
 
     default:
