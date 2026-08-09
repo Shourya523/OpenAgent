@@ -1,5 +1,5 @@
 "use client"
-import React, { useCallback, useRef, useEffect, useState, ReactNode } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import {
     ReactFlow,
     ReactFlowProvider,
@@ -9,6 +9,8 @@ import {
     Controls,
     useReactFlow,
     Background,
+    Handle,
+    Position,
     type Connection,
     type Node,
     type Edge
@@ -17,6 +19,7 @@ import {
 import Sidebar from './Sidebar';
 import { DnDProvider, useDnD } from './DnDContext';
 import { executeWorkflow } from '../workflow/executeWorkFlows';
+import { Play, Terminal as TerminalIcon, Trash2, Save, RotateCcw, X, Settings, Activity, Sparkles, Cpu, Database, GitFork, Download, Link2 } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 
 const STORAGE_KEY = 'openagent-flow-state';
@@ -25,8 +28,8 @@ let id = 0;
 const getId = () => `dndnode_${id++}`;
 
 const initialNodes: Node[] = [
-    { id: 'n1', position: { x: 250, y: 100 }, data: { label: 'Start' } },
-    { id: 'n2', position: { x: 250, y: 250 }, data: { label: 'Finish' } },
+    { id: 'n1', position: { x: 320, y: 120 }, data: { label: 'Start' } },
+    { id: 'n2', position: { x: 320, y: 300 }, data: { label: 'Finish' } },
 ];
 
 const initialEdges: Edge[] = [
@@ -66,6 +69,12 @@ const fieldOptions: Record<string, Array<{ value: string, label: string }>> = {
         { value: "markdown", label: "Markdown" },
         { value: "json", label: "JSON" },
     ],
+    method: [
+        { value: "GET", label: "GET" },
+        { value: "POST", label: "POST" },
+        { value: "PUT", label: "PUT" },
+        { value: "DELETE", label: "DELETE" },
+    ],
 };
 
 const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>> = {
@@ -79,6 +88,7 @@ const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>>
         { key: "name", label: "Node Name" },
         { key: "provider", label: "Provider" },
         { key: "model", label: "Model" },
+        { key: "apiKey", label: "Custom Gemini API Key" },
         { key: "inputVariable", label: "Input Variable" },
         { key: "systemPrompt", label: "System Prompt" },
         { key: "temperature", label: "Temperature" },
@@ -118,6 +128,15 @@ const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>>
         { key: "variable", label: "Variable to Output" },
         { key: "format", label: "Output Format" },
     ],
+
+    api: [
+        { key: "name", label: "Node Name" },
+        { key: "method", label: "HTTP Method" },
+        { key: "url", label: "API Endpoint URL (e.g. https://api.example.com/{{var}})" },
+        { key: "headers", label: "Headers JSON (e.g. {\"Authorization\": \"Bearer {{var}}\"})" },
+        { key: "payload", label: "Payload JSON (optional)" },
+        { key: "outputVariable", label: "Output Variable Name" },
+    ],
 };
 
 const getNodeConfigType = (node: Node | null | undefined) => {
@@ -132,12 +151,167 @@ const getNodeConfigType = (node: Node | null | undefined) => {
     if (label.includes('condition')) return 'condition';
     if (label.includes('input')) return 'input';
     if (label.includes('output')) return 'output';
+    if (label.includes('api')) return 'api';
 
     return typeof node?.type === 'string' ? node.type : 'default';
 };
 
+// ── Custom Node Components for React Flow (Glow & Glassmorphic Aesthetic) ────────────────
+const CustomInputNode = ({ data, selected }: { data: any; selected?: boolean }) => {
+    return (
+        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/85 border text-left min-w-[170px] transition-all duration-300 relative overflow-hidden backdrop-blur-md ${
+            selected 
+                ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-102' 
+                : 'border-zinc-900 hover:border-emerald-500/40 shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+        }`}>
+            {/* Thematic Background Spotlight */}
+            <div className="absolute top-0 right-0 w-12 h-12 bg-emerald-500/5 blur-xl rounded-full pointer-events-none z-0" />
+            {/* Left indicator accent strip */}
+            <div className="absolute left-0 top-3 bottom-3 w-[3px] bg-emerald-500 rounded-r-md z-10" />
+
+            <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-zinc-900/60 select-none relative z-10">
+                <Play className="w-3 h-3 text-emerald-400 fill-emerald-400/20" />
+                <span className="text-[9px] font-mono font-black text-emerald-400 tracking-widest uppercase">INPUT</span>
+            </div>
+            <div className="text-xs font-bold text-zinc-200 truncate relative z-10">{data.label}</div>
+            
+            <Handle 
+                type="source" 
+                position={Position.Bottom} 
+                className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-zinc-950 !rounded-full !bottom-[-5px] !shadow-[0_0_8px_rgba(16,185,129,0.6)]" 
+            />
+        </div>
+    );
+};
+
+const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }) => {
+    const nodeType = typeof data.nodeType === 'string' ? data.nodeType : 'default';
+
+    let colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-sky-500/40";
+    let activeColorClass = "border-sky-500 ring-2 ring-sky-500/20 shadow-[0_0_20px_rgba(14,165,233,0.3)] scale-102";
+    let label = "PROMPT";
+    let Icon = TerminalIcon;
+    let labelColor = "text-sky-400";
+    let handleColor = "!bg-sky-500";
+    let indicatorBg = "bg-sky-500";
+    let glowBg = "bg-sky-500/5";
+    let handleShadow = "!shadow-[0_0_8px_rgba(14,165,233,0.6)]";
+
+    if (nodeType === 'llm') {
+        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-purple-500/40";
+        activeColorClass = "border-purple-500 ring-2 ring-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.3)] scale-102";
+        label = "GEMINI LLM";
+        Icon = Sparkles;
+        labelColor = "text-purple-400";
+        handleColor = "!bg-purple-500";
+        indicatorBg = "bg-purple-500";
+        glowBg = "bg-purple-500/5";
+        handleShadow = "!shadow-[0_0_8px_rgba(168,85,247,0.6)]";
+    } else if (nodeType === 'tool') {
+        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-amber-500/40";
+        activeColorClass = "border-amber-500 ring-2 ring-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.3)] scale-102";
+        label = "TOOL CALL";
+        Icon = Cpu;
+        labelColor = "text-amber-400";
+        handleColor = "!bg-amber-500";
+        indicatorBg = "bg-amber-500";
+        glowBg = "bg-amber-500/5";
+        handleShadow = "!shadow-[0_0_8px_rgba(245,158,11,0.6)]";
+    } else if (nodeType === 'memory') {
+        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-teal-500/40";
+        activeColorClass = "border-teal-500 ring-2 ring-teal-500/20 shadow-[0_0_20px_rgba(13,148,136,0.3)] scale-102";
+        label = "MEMORY";
+        Icon = Database;
+        labelColor = "text-teal-400";
+        handleColor = "!bg-teal-500";
+        indicatorBg = "bg-teal-500";
+        glowBg = "bg-teal-500/5";
+        handleShadow = "!shadow-[0_0_8px_rgba(13,148,136,0.6)]";
+    } else if (nodeType === 'condition') {
+        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-rose-500/40";
+        activeColorClass = "border-rose-500 ring-2 ring-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.3)] scale-102";
+        label = "CONDITION";
+        Icon = GitFork;
+        labelColor = "text-rose-400";
+        handleColor = "!bg-rose-500";
+        indicatorBg = "bg-rose-500";
+        glowBg = "bg-rose-500/5";
+        handleShadow = "!shadow-[0_0_8px_rgba(244,63,94,0.6)]";
+    } else if (nodeType === 'api') {
+        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-orange-500/40";
+        activeColorClass = "border-orange-500 ring-2 ring-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.3)] scale-102";
+        label = "API CONNECTOR";
+        Icon = Link2;
+        labelColor = "text-orange-400";
+        handleColor = "!bg-orange-500";
+        indicatorBg = "bg-orange-500";
+        glowBg = "bg-orange-500/5";
+        handleShadow = "!shadow-[0_0_8px_rgba(249,115,22,0.6)]";
+    }
+
+    return (
+        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/85 border text-left min-w-[170px] transition-all duration-300 relative overflow-hidden backdrop-blur-md ${
+            selected ? activeColorClass : colorClass
+        }`}>
+            {/* Thematic Background Spotlight */}
+            <div className={`absolute top-0 right-0 w-12 h-12 blur-xl rounded-full pointer-events-none z-0 ${glowBg}`} />
+            {/* Left indicator accent strip */}
+            <div className={`absolute left-0 top-3 bottom-3 w-[3px] rounded-r-md z-10 ${indicatorBg}`} />
+
+            <Handle 
+                type="target" 
+                position={Position.Top} 
+                className={`!w-2.5 !h-2.5 !border-2 !border-zinc-950 !rounded-full !top-[-5px] ${handleColor} ${handleShadow}`} 
+            />
+            
+            <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-zinc-900/60 select-none relative z-10">
+                <Icon className={`w-3.5 h-3.5 ${labelColor}`} />
+                <span className={`text-[9px] font-mono font-black ${labelColor} tracking-widest uppercase`}>{label}</span>
+            </div>
+            <div className="text-xs font-bold text-zinc-200 truncate relative z-10">{data.label}</div>
+            
+            <Handle 
+                type="source" 
+                position={Position.Bottom} 
+                className={`!w-2.5 !h-2.5 !border-2 !border-zinc-950 !rounded-full !bottom-[-5px] ${handleColor} ${handleShadow}`} 
+            />
+        </div>
+    );
+};
+
+const CustomOutputNode = ({ data, selected }: { data: any; selected?: boolean }) => {
+    return (
+        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/85 border text-left min-w-[170px] transition-all duration-300 relative overflow-hidden backdrop-blur-md ${
+            selected 
+                ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.3)] scale-102' 
+                : 'border-zinc-900 hover:border-indigo-500/40 shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+        }`}>
+            {/* Thematic Background Spotlight */}
+            <div className="absolute top-0 right-0 w-12 h-12 bg-indigo-500/5 blur-xl rounded-full pointer-events-none z-0" />
+            {/* Left indicator accent strip */}
+            <div className="absolute left-0 top-3 bottom-3 w-[3px] bg-indigo-500 rounded-r-md z-10" />
+
+            <Handle 
+                type="target" 
+                position={Position.Top} 
+                className="!w-2.5 !h-2.5 !bg-indigo-500 !border-2 !border-zinc-950 !rounded-full !top-[-5px] !shadow-[0_0_8px_rgba(99,102,241,0.6)]" 
+            />
+            <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-zinc-900/60 select-none relative z-10">
+                <Download className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-[9px] font-mono font-black text-indigo-400 tracking-widest uppercase">OUTPUT</span>
+            </div>
+            <div className="text-xs font-bold text-zinc-200 truncate relative z-10">{data.label}</div>
+        </div>
+    );
+};
+
 function DnDFlow() {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
+    const nodeTypes = React.useMemo(() => ({
+        input: CustomInputNode,
+        default: CustomDefaultNode,
+        output: CustomOutputNode,
+    }), []);
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const { screenToFlowPosition, deleteElements, toObject, setViewport } = useReactFlow();
@@ -231,6 +405,12 @@ function DnDFlow() {
         | Node<{ label?: string; [key: string]: unknown }>
         | undefined) ?? null;
 
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+    const editingNode = (nodes.find((node) => node.id === editingNodeId) as
+        | Node<{ label?: string; [key: string]: unknown }>
+        | undefined) ?? null;
+
     const handleLabelChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const newLabel = event.target.value;
         if (!selectedNode) return;
@@ -256,25 +436,26 @@ function DnDFlow() {
     }, []);
 
     const onNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
-        const currentLabel = (node.data?.label as string) || '';
-        const newLabel = prompt('Edit node label:', currentLabel);
-        if (newLabel !== null && newLabel.trim() !== '') {
-            setNodes((nds) =>
-                nds.map((n) => {
-                    if (n.id === node.id) {
-                        return {
-                            ...n,
-                            data: {
-                                ...n.data,
-                                label: newLabel,
-                            },
-                        };
+        setEditingNodeId(node.id);
+        setIsModalOpen(true);
+    }, []);
+
+    const updateEditingNodeData = useCallback((key: string, value: string) => {
+        if (!editingNodeId) return;
+        setNodes((nds) =>
+            nds.map((node) =>
+                node.id === editingNodeId
+                    ? {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            [key]: value,
+                        },
                     }
-                    return n;
-                })
-            );
-        }
-    }, [setNodes]);
+                    : node
+            )
+        );
+    }, [editingNodeId, setNodes]);
 
     const handleDeleteSelection = useCallback(() => {
         deleteElements({
@@ -329,57 +510,72 @@ function DnDFlow() {
     );
 
     return (
-        <div className="flex w-full h-[80vh] min-h-[650px] border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950 relative">
+        <div className="w-full h-[64vh] min-h-[500px] border border-zinc-900 rounded-2xl overflow-hidden bg-zinc-950 relative shadow-2xl">
             <Sidebar />
-            <div className="flex-grow h-full relative" ref={reactFlowWrapper}>
-                <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+            <div className="w-full h-full relative" ref={reactFlowWrapper}>
+                {/* Control Action Bar */}
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex flex-wrap items-center gap-2 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl p-1.5 shadow-2xl select-none">
                     <button
                         onClick={runWorkflow}
                         disabled={isRunning}
-                        className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg shadow-md transition-all cursor-pointer ${isRunning
-                            ? 'bg-amber-600/60 text-amber-100 cursor-not-allowed animate-pulse'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer ${isRunning
+                            ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30 cursor-not-allowed animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                            : 'bg-emerald-950/30 hover:bg-emerald-600 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 hover:text-white shadow-[0_0_12px_rgba(16,185,129,0.15)]'
                             }`}
                     >
-                        {isRunning ? 'Running...' : 'Run Workflow'}
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        {isRunning ? 'Running...' : 'Run Flow'}
                     </button>
+
                     <button
                         onClick={() => setShowLogs((prev) => !prev)}
-                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-semibold rounded-lg border border-zinc-700 shadow-md backdrop-blur flex items-center gap-1.5 transition-all cursor-pointer"
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer shadow-md ${showLogs
+                            ? 'bg-zinc-800 border-zinc-700 text-white shadow-inner shadow-black/45'
+                            : 'bg-zinc-950/60 hover:bg-zinc-900 border-zinc-900 hover:border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                            }`}
                     >
-                        {showLogs ? 'Hide Logs' : 'Logs'}
+                        <TerminalIcon className="w-3.5 h-3.5" />
+                        {showLogs ? 'Hide Logs' : 'Console'}
                     </button>
+
                     {selectedNode && (
-                        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-lg shadow-md">
-                            <span className="text-xs font-semibold text-zinc-400">Label:</span>
+                        <div className="flex items-center gap-1.5 bg-zinc-900/40 border border-zinc-900 px-2.5 py-1 rounded-lg">
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Rename:</span>
                             <input
                                 type="text"
                                 value={(selectedNode.data?.label as string) || ''}
                                 onChange={handleLabelChange}
-                                className="bg-zinc-800 text-zinc-100 text-xs px-2 py-1 rounded border border-zinc-600 focus:outline-none focus:border-blue-500 w-36"
+                                className="bg-zinc-900 text-zinc-150 text-xs px-2 py-0.5 rounded border border-zinc-800 focus:outline-none focus:border-zinc-700 w-28 font-medium"
                                 placeholder="Node Label"
                             />
                         </div>
                     )}
+
                     {hasSelection && (
                         <button
                             onClick={handleDeleteSelection}
-                            className="px-3 py-1.5 bg-red-600/90 hover:bg-red-600 text-white text-xs font-semibold rounded-lg shadow-lg backdrop-blur flex items-center gap-1.5 transition-all cursor-pointer"
+                            className="px-3.5 py-1.5 bg-red-950/20 hover:bg-red-650 border border-red-900/45 hover:border-red-500/50 text-red-400 hover:text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1.5 transition-all cursor-pointer"
                             title="Delete selected nodes/edges"
                         >
+                            <Trash2 className="w-3.5 h-3.5" />
                             Delete ({selectedNodes.length + selectedEdges.length})
                         </button>
                     )}
+
+                    <div className="w-px h-6 bg-zinc-900 mx-1" />
+
                     <button
                         onClick={handleSave}
-                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-semibold rounded-lg border border-zinc-700 shadow-md backdrop-blur flex items-center gap-1.5 transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 bg-zinc-950/60 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 text-xs font-bold rounded-lg border border-zinc-900 hover:border-zinc-800 shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
                     >
+                        <Save className="w-3.5 h-3.5" />
                         Save
                     </button>
                     <button
                         onClick={handleRestore}
-                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-semibold rounded-lg border border-zinc-700 shadow-md backdrop-blur flex items-center gap-1.5 transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 bg-zinc-950/60 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 text-xs font-bold rounded-lg border border-zinc-900 hover:border-zinc-800 shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
                     >
+                        <RotateCcw className="w-3.5 h-3.5" />
                         Restore
                     </button>
                 </div>
@@ -478,6 +674,7 @@ function DnDFlow() {
                     deleteKeyCode={['Backspace', 'Delete']}
                     fitView
                     onNodeClick={onNodeClick}
+                    nodeTypes={nodeTypes}
                 >
                     <Background />
                     <Controls />
@@ -485,71 +682,143 @@ function DnDFlow() {
             </div>
 
             {isSidebarOpen && selectedNodeData && (
-                <aside className="w-72 border-l border-zinc-800 bg-zinc-900 p-4 relative">
+                <aside className="absolute top-4 right-4 bottom-4 z-20 w-72 p-5 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl text-zinc-150 flex flex-col gap-4 select-none shadow-2xl overflow-y-auto scrollbar-thin text-left">
                     <button
                         onClick={() => setIsSidebarOpen(false)}
-                        className="absolute top-3 right-3 text-zinc-400 hover:text-zinc-100 text-sm"
+                        className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-200 text-sm cursor-pointer transition-colors p-1 hover:bg-zinc-900 rounded-md"
                         aria-label="Close sidebar"
                     >
-                        ✕
+                        <X className="w-4 h-4" />
                     </button>
-                    <h3 className="text-sm font-semibold mb-3 pr-6">
-                        {String(selectedNodeData.data?.label ?? 'Node')}
-                    </h3>
+                    
+                    <div className="flex items-center gap-2 pb-2 border-b border-zinc-900 mt-2">
+                        <Settings className="w-4 h-4 text-zinc-400" />
+                        <h3 className="text-sm font-bold text-zinc-100 truncate pr-6">
+                            {String(selectedNodeData.data?.label ?? 'Node Settings')}
+                        </h3>
+                    </div>
 
-                    {(sidebarFieldsByType[getNodeConfigType(selectedNodeData)] || []).map((field) => (
-                        <div key={field.key} className="mb-3 text-left">
-                            <label className="block text-xs text-zinc-400 mb-1">{field.label}</label>
-                            {fieldOptions[field.key] ? (
-                                <select
-                                    className="w-full rounded bg-zinc-800 px-2 py-1.5 text-white text-sm border border-zinc-700 focus:outline-none focus:border-blue-500 cursor-pointer"
-                                    value={String(selectedNodeData.data?.[field.key] ?? fieldOptions[field.key][0].value)}
-                                    onChange={(e) => {
-                                        setNodes((nds) =>
-                                            nds.map((node) =>
-                                                node.id === selectedNodeId
-                                                    ? {
-                                                        ...node,
-                                                        data: {
-                                                            ...node.data,
-                                                            [field.key]: e.target.value,
-                                                        },
-                                                    }
-                                                    : node
-                                            )
-                                        );
-                                    }}
-                                >
-                                    {fieldOptions[field.key].map((opt) => (
-                                        <option key={opt.value} value={opt.value}>
-                                            {opt.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <input
-                                    className="w-full rounded bg-zinc-800 px-2.5 py-1.5 text-white text-sm border border-zinc-750 focus:outline-none focus:border-blue-500"
-                                    value={String(selectedNodeData.data?.[field.key] ?? '')}
-                                    onChange={(e) => {
-                                        setNodes((nds) =>
-                                            nds.map((node) =>
-                                                node.id === selectedNodeId
-                                                    ? {
-                                                        ...node,
-                                                        data: {
-                                                            ...node.data,
-                                                            [field.key]: e.target.value,
-                                                        },
-                                                    }
-                                                    : node
-                                            )
-                                        );
-                                    }}
-                                />
-                            )}
-                        </div>
-                    ))}
+                    <div className="flex flex-col gap-3.5">
+                        {(sidebarFieldsByType[getNodeConfigType(selectedNodeData)] || []).map((field) => (
+                            <div key={field.key} className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{field.label}</label>
+                                {fieldOptions[field.key] ? (
+                                    <select
+                                        className="w-full rounded-xl bg-zinc-900/60 px-3 py-2 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors cursor-pointer"
+                                        value={String(selectedNodeData.data?.[field.key] ?? fieldOptions[field.key][0].value)}
+                                        onChange={(e) => {
+                                            setNodes((nds) =>
+                                                nds.map((node) =>
+                                                    node.id === selectedNodeId
+                                                        ? {
+                                                            ...node,
+                                                            data: {
+                                                                ...node.data,
+                                                                [field.key]: e.target.value,
+                                                            },
+                                                        }
+                                                        : node
+                                                )
+                                            );
+                                        }}
+                                    >
+                                        {fieldOptions[field.key].map((opt) => (
+                                            <option key={opt.value} value={opt.value} className="bg-zinc-950 text-zinc-300">
+                                                {opt.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        className="w-full rounded-xl bg-zinc-900/60 px-3 py-2 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors font-medium"
+                                        value={String(selectedNodeData.data?.[field.key] ?? '')}
+                                        onChange={(e) => {
+                                            setNodes((nds) =>
+                                                nds.map((node) =>
+                                                    node.id === selectedNodeId
+                                                        ? {
+                                                            ...node,
+                                                            data: {
+                                                                ...node.data,
+                                                                [field.key]: e.target.value,
+                                                            },
+                                                        }
+                                                        : node
+                                                )
+                                            );
+                                        }}
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 </aside>
+            )}
+
+            {/* Glassmorphic Settings Modal Popup Triggered on Double Click */}
+            {isModalOpen && editingNode && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
+                    <div className="bg-zinc-950 border border-zinc-900 w-full max-w-md rounded-2xl p-6 shadow-2xl relative flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200">
+                        {/* Close button */}
+                        <button
+                            onClick={() => setIsModalOpen(false)}
+                            className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-200 text-sm cursor-pointer transition-colors p-1 hover:bg-zinc-900 rounded-md"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+
+                        <div className="flex items-center gap-2 pb-2 border-b border-zinc-900">
+                            <Settings className="w-4 h-4 text-cyan-400" />
+                            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider">
+                                {String(editingNode.data?.label ?? 'Node Settings')}
+                            </h3>
+                        </div>
+
+                        <div className="flex flex-col gap-4 overflow-y-auto max-h-[50vh] pr-1 py-1">
+                            {(sidebarFieldsByType[getNodeConfigType(editingNode)] || []).map((field) => (
+                                <div key={field.key} className="flex flex-col gap-1.5">
+                                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{field.label}</label>
+                                    {fieldOptions[field.key] ? (
+                                        <select
+                                            className="w-full rounded-xl bg-zinc-900/60 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors cursor-pointer"
+                                            value={String(editingNode.data?.[field.key] ?? fieldOptions[field.key][0].value)}
+                                            onChange={(e) => updateEditingNodeData(field.key, e.target.value)}
+                                        >
+                                            {fieldOptions[field.key].map((opt) => (
+                                                <option key={opt.value} value={opt.value} className="bg-zinc-950 text-zinc-300">
+                                                    {opt.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : field.key === 'apiKey' ? (
+                                        <input
+                                            type="password"
+                                            className="w-full rounded-xl bg-zinc-900/60 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors font-medium font-mono"
+                                            placeholder="Enter Gemini API Key (Optional)"
+                                            value={String(editingNode.data?.[field.key] ?? '')}
+                                            onChange={(e) => updateEditingNodeData(field.key, e.target.value)}
+                                        />
+                                    ) : (
+                                        <input
+                                            className="w-full rounded-xl bg-zinc-900/60 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors font-medium"
+                                            value={String(editingNode.data?.[field.key] ?? '')}
+                                            onChange={(e) => updateEditingNodeData(field.key, e.target.value)}
+                                        />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-zinc-900 mt-1">
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-550 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer"
+                            >
+                                Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

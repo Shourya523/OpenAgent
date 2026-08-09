@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
-import { google } from "@ai-sdk/google";
+import { google, createGoogle } from "@ai-sdk/google";
 
 // Safe math evaluator helper
 function safeEvalMath(expression: string): number | string {
@@ -127,19 +127,22 @@ export async function POST(req: Request) {
     const { action } = body;
 
     if (action === "llm") {
-      const { model, prompt, systemPrompt, temperature, maxTokens } = body;
+      const { model, prompt, systemPrompt, temperature, maxTokens, apiKey: userApiKey } = body;
       const selectedModel = model || "gemini-3.1-flash-lite";
 
-      const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      if (!apiKey) {
+      const activeApiKey = userApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+      if (!activeApiKey) {
         return NextResponse.json(
-          { error: "GOOGLE_GENERATIVE_AI_API_KEY environment variable is missing" },
-          { status: 500 }
+          { error: "Google Gemini API Key is missing. Please configure it in your LLM node settings." },
+          { status: 400 }
         );
       }
 
+      // Create Google SDK instance dynamically with active key
+      const googleSDK = createGoogle({ apiKey: activeApiKey });
+
       const result = await generateText({
-        model: google(selectedModel),
+        model: googleSDK(selectedModel),
         prompt: prompt || "",
         system: systemPrompt,
         temperature: typeof temperature === "number" ? temperature : undefined,
@@ -175,6 +178,45 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json({ error: `Unknown tool type: ${tool}` }, { status: 400 });
+    }
+
+    if (action === "api_call") {
+      const { url, method, headers, payload } = body;
+
+      if (!url) {
+        return NextResponse.json({ error: "Missing URL for API Call" }, { status: 400 });
+      }
+
+      let parsedHeaders: Record<string, string> = {};
+      if (headers) {
+        try {
+          parsedHeaders = typeof headers === "string" ? JSON.parse(headers) : headers;
+        } catch (e) {
+          console.warn("Failed to parse custom API headers", e);
+        }
+      }
+
+      const options: RequestInit = {
+        method: method || "GET",
+        headers: parsedHeaders,
+      };
+
+      if (method && method !== "GET" && method !== "HEAD" && payload) {
+        options.body = typeof payload === "string" ? payload : JSON.stringify(payload);
+      }
+
+      const apiResponse = await fetch(url, options);
+      const contentType = apiResponse.headers.get("content-type") || "";
+      let resultText = "";
+      
+      if (contentType.includes("application/json")) {
+        const json = await apiResponse.json();
+        resultText = JSON.stringify(json, null, 2);
+      } else {
+        resultText = await apiResponse.text();
+      }
+
+      return NextResponse.json({ result: resultText });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

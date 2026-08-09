@@ -38,6 +38,7 @@ export async function executeLLM(
         systemPrompt: systemPrompt || undefined,
         temperature,
         maxTokens,
+        apiKey: String(node.data?.apiKey ?? "").trim() || undefined,
       }),
     });
 
