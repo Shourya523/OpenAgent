@@ -9,6 +9,7 @@ import { executeMemory } from "./executors/memory";
 import { executeTool } from "./executors/tool";
 import { executeCondition } from "./executors/condition";
 import { executeApi } from "./executors/api";
+import { executeAgentNode } from "./executors/agent";
 
 // Helper to determine the node's semantic config type
 export const getNodeConfigType = (node: Node) => {
@@ -16,6 +17,7 @@ export const getNodeConfigType = (node: Node) => {
   if (explicitType) return explicitType;
 
   const label = String(node.data?.label ?? '').toLowerCase();
+  if (label.includes('agent')) return 'agent';
   if (label.includes('prompt')) return 'prompt';
   if (label.includes('llm')) return 'llm';
   if (label.includes('tool')) return 'tool';
@@ -45,6 +47,10 @@ export async function executeNode(
 
     case "llm":
       await executeLLM(node, runtime);
+      break;
+
+    case "agent":
+      await executeAgentNode(node, runtime);
       break;
 
     case "tool":

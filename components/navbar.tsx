@@ -79,6 +79,16 @@ export default function Navbar() {
               Home
             </Link>
             <Link
+              href="/workshop"
+              className={`py-1 px-3 rounded-full transition-all duration-300 cursor-pointer flex items-center gap-1 ${
+                pathname === "/workshop" 
+                  ? "text-cyan-400 bg-cyan-950/30 border border-cyan-900/50 shadow-[0_0_12px_rgba(6,182,212,0.2)] font-bold" 
+                  : "hover:text-cyan-300"
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-cyan-400" /> Workshop
+            </Link>
+            <Link
               href="/features"
               className={`py-1 px-3 rounded-full transition-all duration-300 cursor-pointer ${
                 pathname === "/features" 
@@ -88,32 +98,15 @@ export default function Navbar() {
             >
               Features
             </Link>
-            <Link
-              href="/builder"
-              className={`py-1 px-3 rounded-full transition-all duration-300 cursor-pointer ${
-                pathname === "/builder" 
-                  ? "text-blue-400 bg-blue-950/20 border border-blue-900/40 shadow-[0_0_12px_rgba(59,130,246,0.12)] font-bold" 
-                  : "hover:text-zinc-200"
-              }`}
-            >
-              Builder
-            </Link>
-            <Link
-              href="/#contact"
-              onClick={(e) => handleNavClick(e, "contact")}
-              className="py-1 px-3 rounded-full transition-all duration-300 hover:text-zinc-200 cursor-pointer"
-            >
-              Contact
-            </Link>
           </div>
 
-          {/* Mobile indicator for builder */}
-          <div className="sm:hidden">
+          {/* Mobile indicator for workshop */}
+          <div className="sm:hidden flex items-center gap-2">
             <Link
-              href="/builder"
-              className="text-xs px-3.5 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-zinc-300 hover:text-white"
+              href="/workshop"
+              className="text-xs px-3 py-1 bg-cyan-950 border border-cyan-800 rounded-full text-cyan-300 font-bold"
             >
-              Builder
+              Workshop
             </Link>
           </div>
         </div>

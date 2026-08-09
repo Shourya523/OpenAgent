@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Play, Sparkles, Terminal, Cpu, Database, GitFork, ArrowRight, ArrowLeft, Plus, Trash2, CheckCircle2, RotateCcw, Layout, Mail, Bell } from "lucide-react"
+import { Play, Sparkles, Terminal, Cpu, Database, GitFork, ArrowRight, ArrowLeft, Plus, Trash2, CheckCircle2, RotateCcw, Layout, Mail, Bell, X } from "lucide-react"
 
 interface MiniNode {
   id: string
@@ -28,7 +28,7 @@ export default function ProjectPreview() {
   const [isRunning, setIsRunning] = useState(false)
   const [simStep, setSimStep] = useState(0)
   const [logs, setLogs] = useState<string[]>([
-    "▶ Console ready. Click 'Run Flow' to test workflow."
+    "Console ready. Click 'Run Flow' to test workflow."
   ])
 
   const logContainerRef = useRef<HTMLDivElement>(null)
@@ -52,14 +52,14 @@ export default function ProjectPreview() {
     if (!isRunning) return
 
     const simulationSequence = [
-      { log: "▶ Starting execution: 'OpenAgent Production Flow'", type: "info" },
+      { log: "Starting execution: 'OpenAgent Production Flow'", type: "info" },
       { log: "Node 'User Input' parsed variables successfully.", type: "input" },
       { log: "Sending context package to Node 'Gemini 1.5 Pro'...", type: "info" },
       { log: "API Call: gemini-1.5-pro responding (1,280 tokens)...", type: "llm" },
       { log: "Gemini execution successful in 680ms.", type: "success" },
       { log: "Forwarding node payload to Output Hook...", type: "info" },
       { log: "Node 'Discord Webhook' successfully executed.", type: "output" },
-      { log: "✅ Workflow trigger finished. Exit code 0.", type: "success" }
+      { log: "Workflow trigger finished. Exit code 0.", type: "success" }
     ]
 
     if (simStep < simulationSequence.length) {
@@ -116,7 +116,7 @@ export default function ProjectPreview() {
 
   const handleAddNode = (type: "tool" | "memory" | "condition") => {
     if (nodes.length >= 6) {
-      setLogs((l) => [...l, "⚠ Max nodes reached for preview mockup!"])
+      setLogs((l) => [...l, "Max nodes reached for preview mockup!"])
       return
     }
 
@@ -142,7 +142,7 @@ export default function ProjectPreview() {
 
   const handleDeleteNode = (id: string) => {
     if (id === "node-1" || id === "node-2" || id === "node-3") {
-      setLogs((l) => [...l, "⚠ Default trigger/output nodes cannot be deleted."])
+      setLogs((l) => [...l, "Default trigger/output nodes cannot be deleted."])
       return
     }
     const nodeToDelete = nodes.find((n) => n.id === id)
@@ -180,7 +180,7 @@ export default function ProjectPreview() {
       { id: "node-3", label: "Discord Webhook", type: "output", color: "border-indigo-800 text-indigo-400 bg-indigo-950/20", x: 360, y: 110 }
     ])
     setSelectedNodeId(null)
-    setLogs(["▶ Canvas state reset. Trigger nodes loaded."])
+    setLogs(["Canvas state reset. Trigger nodes loaded."])
   }
 
   const scaleFactor = canvasWidth < 500 ? canvasWidth / 500 : 1
@@ -469,7 +469,7 @@ export default function ProjectPreview() {
                   <div className="flex justify-between items-center pb-1 border-b border-zinc-900 font-bold text-zinc-400">
                     <span>EDIT NODE</span>
                     <button onClick={() => setSelectedNodeId(null)} className="text-zinc-600 hover:text-zinc-200">
-                      ✕
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <form onSubmit={handleRenameNode} className="flex flex-col gap-2">
@@ -518,10 +518,10 @@ export default function ProjectPreview() {
               <div ref={logContainerRef} className="flex flex-col gap-0.5 overflow-y-auto max-h-20 text-left leading-relaxed">
                 {logs.map((log, index) => {
                   let color = "text-zinc-500"
-                  if (log.includes("▶") || log.includes("✅")) color = "text-emerald-400 font-semibold"
+                  if (log.includes("Starting") || log.includes("finished")) color = "text-emerald-400 font-semibold"
                   else if (log.includes("Calling") || log.includes("API")) color = "text-blue-400"
                   else if (log.includes("Spawned") || log.includes("Deleted")) color = "text-purple-400"
-                  else if (log.includes("⚠")) color = "text-rose-400"
+                  else if (log.includes("Max nodes") || log.includes("cannot be deleted")) color = "text-rose-400"
                   else if (log.includes("[Editor]")) color = "text-zinc-400"
 
                   return (

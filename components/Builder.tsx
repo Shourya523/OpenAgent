@@ -19,7 +19,7 @@ import {
 import Sidebar from './Sidebar';
 import { DnDProvider, useDnD } from './DnDContext';
 import { executeWorkflow } from '../workflow/executeWorkFlows';
-import { Play, Terminal as TerminalIcon, Trash2, Save, RotateCcw, X, Settings, Activity, Sparkles, Cpu, Database, GitFork, Download, Link2 } from "lucide-react";
+import { Play, Terminal as TerminalIcon, Trash2, Save, RotateCcw, X, Settings, Activity, Sparkles, Cpu, Database, GitFork, Download, Link2, Bot, Edit3, FileText, HelpCircle, BookOpen } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 
 const STORAGE_KEY = 'openagent-flow-state';
@@ -28,12 +28,14 @@ let id = 0;
 const getId = () => `dndnode_${id++}`;
 
 const initialNodes: Node[] = [
-    { id: 'n1', position: { x: 320, y: 120 }, data: { label: 'Start' } },
-    { id: 'n2', position: { x: 320, y: 300 }, data: { label: 'Finish' } },
+    { id: 'n1', position: { x: 320, y: 120 }, data: { label: 'Start', nodeType: 'input' }, type: 'input' },
+    { id: 'n2', position: { x: 320, y: 260 }, data: { label: 'Prompt', nodeType: 'prompt', prompt: 'Summarize topic: {{input}}' }, type: 'default' },
+    { id: 'n3', position: { x: 320, y: 400 }, data: { label: 'Finish', nodeType: 'output' }, type: 'output' },
 ];
 
 const initialEdges: Edge[] = [
-    { id: 'n1-n2', source: 'n1', target: 'n2', label: "somewhere in between" }
+    { id: 'n1-n2', source: 'n1', target: 'n2' },
+    { id: 'n2-n3', source: 'n2', target: 'n3' },
 ];
 
 const fieldOptions: Record<string, Array<{ value: string, label: string }>> = {
@@ -80,7 +82,7 @@ const fieldOptions: Record<string, Array<{ value: string, label: string }>> = {
 const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>> = {
     prompt: [
         { key: "name", label: "Node Name" },
-        { key: "prompt", label: "Prompt Template" },
+        { key: "prompt", label: "Prompt Template (use {{var}})" },
         { key: "outputVariable", label: "Output Variable Name" },
     ],
 
@@ -90,10 +92,19 @@ const sidebarFieldsByType: Record<string, Array<{ key: string, label: string }>>
         { key: "model", label: "Model" },
         { key: "apiKey", label: "Custom Gemini API Key" },
         { key: "inputVariable", label: "Input Variable" },
-        { key: "systemPrompt", label: "System Prompt" },
+        { key: "systemPrompt", label: "System Prompt (use {{var}})" },
         { key: "temperature", label: "Temperature" },
         { key: "maxTokens", label: "Max Tokens" },
         { key: "outputVariable", label: "Output Variable" },
+    ],
+
+    agent: [
+        { key: "name", label: "Agent Name" },
+        { key: "provider", label: "Provider" },
+        { key: "model", label: "Model" },
+        { key: "apiKey", label: "Custom API Key" },
+        { key: "systemPrompt", label: "Agent System Instructions" },
+        { key: "outputVariable", label: "Output Variable Name" },
     ],
 
     tool: [
@@ -156,18 +167,31 @@ const getNodeConfigType = (node: Node | null | undefined) => {
     return typeof node?.type === 'string' ? node.type : 'default';
 };
 
-// ── Custom Node Components for React Flow (Glow & Glassmorphic Aesthetic) ────────────────
-const CustomInputNode = ({ data, selected }: { data: any; selected?: boolean }) => {
+// Custom Node Components with 4-way Handles & Inline Prompt Editor Button
+const CustomInputNode = ({ id, data, selected }: { id: string; data: any; selected?: boolean }) => {
     return (
-        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/85 border text-left min-w-[170px] transition-all duration-300 relative overflow-hidden backdrop-blur-md ${
+        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/90 border text-left min-w-[180px] transition-all duration-300 relative overflow-visible backdrop-blur-md ${
             selected 
                 ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.3)] scale-102' 
-                : 'border-zinc-900 hover:border-emerald-500/40 shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+                : 'border-zinc-800 hover:border-emerald-500/40 shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
         }`}>
             {/* Thematic Background Spotlight */}
             <div className="absolute top-0 right-0 w-12 h-12 bg-emerald-500/5 blur-xl rounded-full pointer-events-none z-0" />
-            {/* Left indicator accent strip */}
             <div className="absolute left-0 top-3 bottom-3 w-[3px] bg-emerald-500 rounded-r-md z-10" />
+
+            {/* Target Handles */}
+            <Handle 
+                type="target" 
+                position={Position.Top} 
+                id="t-top"
+                className="!w-3.5 !h-3.5 !bg-emerald-500 !border-2 !border-zinc-950 !rounded-full !top-[-7px] !shadow-[0_0_10px_rgba(16,185,129,0.8)] z-50 hover:scale-125 transition-transform" 
+            />
+            <Handle 
+                type="target" 
+                position={Position.Left} 
+                id="t-left"
+                className="!w-3.5 !h-3.5 !bg-emerald-500 !border-2 !border-zinc-950 !rounded-full !left-[-7px] !shadow-[0_0_10px_rgba(16,185,129,0.8)] z-50 hover:scale-125 transition-transform" 
+            />
 
             <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-zinc-900/60 select-none relative z-10">
                 <Play className="w-3 h-3 text-emerald-400 fill-emerald-400/20" />
@@ -175,19 +199,27 @@ const CustomInputNode = ({ data, selected }: { data: any; selected?: boolean }) 
             </div>
             <div className="text-xs font-bold text-zinc-200 truncate relative z-10">{data.label}</div>
             
+            {/* Source Handles */}
             <Handle 
                 type="source" 
                 position={Position.Bottom} 
-                className="!w-2.5 !h-2.5 !bg-emerald-500 !border-2 !border-zinc-950 !rounded-full !bottom-[-5px] !shadow-[0_0_8px_rgba(16,185,129,0.6)]" 
+                id="s-bottom"
+                className="!w-3.5 !h-3.5 !bg-emerald-500 !border-2 !border-zinc-950 !rounded-full !bottom-[-7px] !shadow-[0_0_10px_rgba(16,185,129,0.8)] z-50 hover:scale-125 transition-transform" 
+            />
+            <Handle 
+                type="source" 
+                position={Position.Right} 
+                id="s-right"
+                className="!w-3.5 !h-3.5 !bg-emerald-500 !border-2 !border-zinc-950 !rounded-full !right-[-7px] !shadow-[0_0_10px_rgba(16,185,129,0.8)] z-50 hover:scale-125 transition-transform" 
             />
         </div>
     );
 };
 
-const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }) => {
+const CustomDefaultNode = ({ id, data, selected }: { id: string; data: any; selected?: boolean }) => {
     const nodeType = typeof data.nodeType === 'string' ? data.nodeType : 'default';
 
-    let colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-sky-500/40";
+    let colorClass = "border-zinc-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-sky-500/40";
     let activeColorClass = "border-sky-500 ring-2 ring-sky-500/20 shadow-[0_0_20px_rgba(14,165,233,0.3)] scale-102";
     let label = "PROMPT";
     let Icon = TerminalIcon;
@@ -195,10 +227,20 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
     let handleColor = "!bg-sky-500";
     let indicatorBg = "bg-sky-500";
     let glowBg = "bg-sky-500/5";
-    let handleShadow = "!shadow-[0_0_8px_rgba(14,165,233,0.6)]";
+    let handleShadow = "!shadow-[0_0_10px_rgba(14,165,233,0.8)]";
 
-    if (nodeType === 'llm') {
-        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-purple-500/40";
+    if (nodeType === 'agent') {
+        colorClass = "border-amber-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-amber-500/40";
+        activeColorClass = "border-amber-500 ring-2 ring-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.3)] scale-102";
+        label = "AUTONOMOUS AGENT";
+        Icon = Bot;
+        labelColor = "text-amber-400";
+        handleColor = "!bg-amber-500";
+        indicatorBg = "bg-amber-500";
+        glowBg = "bg-amber-500/5";
+        handleShadow = "!shadow-[0_0_10px_rgba(245,158,11,0.8)]";
+    } else if (nodeType === 'llm') {
+        colorClass = "border-zinc-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-purple-500/40";
         activeColorClass = "border-purple-500 ring-2 ring-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.3)] scale-102";
         label = "GEMINI LLM";
         Icon = Sparkles;
@@ -206,9 +248,9 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
         handleColor = "!bg-purple-500";
         indicatorBg = "bg-purple-500";
         glowBg = "bg-purple-500/5";
-        handleShadow = "!shadow-[0_0_8px_rgba(168,85,247,0.6)]";
+        handleShadow = "!shadow-[0_0_10px_rgba(168,85,247,0.8)]";
     } else if (nodeType === 'tool') {
-        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-amber-500/40";
+        colorClass = "border-zinc-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-amber-500/40";
         activeColorClass = "border-amber-500 ring-2 ring-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.3)] scale-102";
         label = "TOOL CALL";
         Icon = Cpu;
@@ -216,9 +258,9 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
         handleColor = "!bg-amber-500";
         indicatorBg = "bg-amber-500";
         glowBg = "bg-amber-500/5";
-        handleShadow = "!shadow-[0_0_8px_rgba(245,158,11,0.6)]";
+        handleShadow = "!shadow-[0_0_10px_rgba(245,158,11,0.8)]";
     } else if (nodeType === 'memory') {
-        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-teal-500/40";
+        colorClass = "border-zinc-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-teal-500/40";
         activeColorClass = "border-teal-500 ring-2 ring-teal-500/20 shadow-[0_0_20px_rgba(13,148,136,0.3)] scale-102";
         label = "MEMORY";
         Icon = Database;
@@ -226,9 +268,9 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
         handleColor = "!bg-teal-500";
         indicatorBg = "bg-teal-500";
         glowBg = "bg-teal-500/5";
-        handleShadow = "!shadow-[0_0_8px_rgba(13,148,136,0.6)]";
+        handleShadow = "!shadow-[0_0_10px_rgba(13,148,136,0.8)]";
     } else if (nodeType === 'condition') {
-        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-rose-500/40";
+        colorClass = "border-zinc-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-rose-500/40";
         activeColorClass = "border-rose-500 ring-2 ring-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.3)] scale-102";
         label = "CONDITION";
         Icon = GitFork;
@@ -236,9 +278,9 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
         handleColor = "!bg-rose-500";
         indicatorBg = "bg-rose-500";
         glowBg = "bg-rose-500/5";
-        handleShadow = "!shadow-[0_0_8px_rgba(244,63,94,0.6)]";
+        handleShadow = "!shadow-[0_0_10px_rgba(244,63,94,0.8)]";
     } else if (nodeType === 'api') {
-        colorClass = "border-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-orange-500/40";
+        colorClass = "border-zinc-800 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-orange-500/40";
         activeColorClass = "border-orange-500 ring-2 ring-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.3)] scale-102";
         label = "API CONNECTOR";
         Icon = Link2;
@@ -246,22 +288,31 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
         handleColor = "!bg-orange-500";
         indicatorBg = "bg-orange-500";
         glowBg = "bg-orange-500/5";
-        handleShadow = "!shadow-[0_0_8px_rgba(249,115,22,0.6)]";
+        handleShadow = "!shadow-[0_0_10px_rgba(249,115,22,0.8)]";
     }
 
+    const isPromptNode = nodeType === 'prompt' || label === 'PROMPT' || String(data.label || '').toLowerCase().includes('prompt');
+
     return (
-        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/85 border text-left min-w-[170px] transition-all duration-300 relative overflow-hidden backdrop-blur-md ${
+        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/90 border text-left min-w-[190px] transition-all duration-300 relative overflow-visible backdrop-blur-md ${
             selected ? activeColorClass : colorClass
         }`}>
             {/* Thematic Background Spotlight */}
             <div className={`absolute top-0 right-0 w-12 h-12 blur-xl rounded-full pointer-events-none z-0 ${glowBg}`} />
-            {/* Left indicator accent strip */}
             <div className={`absolute left-0 top-3 bottom-3 w-[3px] rounded-r-md z-10 ${indicatorBg}`} />
 
+            {/* Target Handles */}
             <Handle 
                 type="target" 
                 position={Position.Top} 
-                className={`!w-2.5 !h-2.5 !border-2 !border-zinc-950 !rounded-full !top-[-5px] ${handleColor} ${handleShadow}`} 
+                id="t-top"
+                className={`!w-3.5 !h-3.5 !border-2 !border-zinc-950 !rounded-full !top-[-7px] ${handleColor} ${handleShadow} z-50 hover:scale-125 transition-transform`} 
+            />
+            <Handle 
+                type="target" 
+                position={Position.Left} 
+                id="t-left"
+                className={`!w-3.5 !h-3.5 !border-2 !border-zinc-950 !rounded-full !left-[-7px] ${handleColor} ${handleShadow} z-50 hover:scale-125 transition-transform`} 
             />
             
             <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-zinc-900/60 select-none relative z-10">
@@ -269,38 +320,89 @@ const CustomDefaultNode = ({ data, selected }: { data: any; selected?: boolean }
                 <span className={`text-[9px] font-mono font-black ${labelColor} tracking-widest uppercase`}>{label}</span>
             </div>
             <div className="text-xs font-bold text-zinc-200 truncate relative z-10">{data.label}</div>
+
+            {/* Inline Prompt Editor Button & Preview for Prompt Node */}
+            {isPromptNode && (
+                <div className="mt-2 pt-2 border-t border-zinc-900/80 flex flex-col gap-1.5 relative z-10">
+                    <div className="text-[10px] text-sky-300/90 font-mono bg-sky-950/40 p-2 rounded-lg border border-sky-900/50 line-clamp-2">
+                        {data.prompt ? `"${data.prompt}"` : 'Click below to add prompt template'}
+                    </div>
+                    <button
+                        type="button"
+                        className="nodrag text-[10px] font-bold text-white bg-sky-600 hover:bg-sky-500 px-3 py-1.5 rounded-lg transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer w-full"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (typeof data.onEditPrompt === 'function') {
+                                data.onEditPrompt(id);
+                            }
+                        }}
+                    >
+                        <Edit3 className="w-3 h-3 text-white" /> {data.prompt ? 'Edit Prompt' : 'Add Prompt'}
+                    </button>
+                </div>
+            )}
             
+            {/* Source Handles */}
             <Handle 
                 type="source" 
                 position={Position.Bottom} 
-                className={`!w-2.5 !h-2.5 !border-2 !border-zinc-950 !rounded-full !bottom-[-5px] ${handleColor} ${handleShadow}`} 
+                id="s-bottom"
+                className={`!w-3.5 !h-3.5 !border-2 !border-zinc-950 !rounded-full !bottom-[-7px] ${handleColor} ${handleShadow} z-50 hover:scale-125 transition-transform`} 
+            />
+            <Handle 
+                type="source" 
+                position={Position.Right} 
+                id="s-right"
+                className={`!w-3.5 !h-3.5 !border-2 !border-zinc-950 !rounded-full !right-[-7px] ${handleColor} ${handleShadow} z-50 hover:scale-125 transition-transform`} 
             />
         </div>
     );
 };
 
-const CustomOutputNode = ({ data, selected }: { data: any; selected?: boolean }) => {
+const CustomOutputNode = ({ id, data, selected }: { id: string; data: any; selected?: boolean }) => {
     return (
-        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/85 border text-left min-w-[170px] transition-all duration-300 relative overflow-hidden backdrop-blur-md ${
+        <div className={`px-4.5 py-3 rounded-2xl bg-zinc-950/90 border text-left min-w-[180px] transition-all duration-300 relative overflow-visible backdrop-blur-md ${
             selected 
                 ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.3)] scale-102' 
-                : 'border-zinc-900 hover:border-indigo-500/40 shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
+                : 'border-zinc-800 hover:border-indigo-500/40 shadow-[0_4px_12px_rgba(0,0,0,0.5)]'
         }`}>
             {/* Thematic Background Spotlight */}
             <div className="absolute top-0 right-0 w-12 h-12 bg-indigo-500/5 blur-xl rounded-full pointer-events-none z-0" />
-            {/* Left indicator accent strip */}
             <div className="absolute left-0 top-3 bottom-3 w-[3px] bg-indigo-500 rounded-r-md z-10" />
 
+            {/* Target Handles */}
             <Handle 
                 type="target" 
                 position={Position.Top} 
-                className="!w-2.5 !h-2.5 !bg-indigo-500 !border-2 !border-zinc-950 !rounded-full !top-[-5px] !shadow-[0_0_8px_rgba(99,102,241,0.6)]" 
+                id="t-top"
+                className="!w-3.5 !h-3.5 !bg-indigo-500 !border-2 !border-zinc-950 !rounded-full !top-[-7px] !shadow-[0_0_10px_rgba(99,102,241,0.8)] z-50 hover:scale-125 transition-transform" 
             />
+            <Handle 
+                type="target" 
+                position={Position.Left} 
+                id="t-left"
+                className="!w-3.5 !h-3.5 !bg-indigo-500 !border-2 !border-zinc-950 !rounded-full !left-[-7px] !shadow-[0_0_10px_rgba(99,102,241,0.8)] z-50 hover:scale-125 transition-transform" 
+            />
+
             <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-zinc-900/60 select-none relative z-10">
                 <Download className="w-3.5 h-3.5 text-indigo-400" />
                 <span className="text-[9px] font-mono font-black text-indigo-400 tracking-widest uppercase">OUTPUT</span>
             </div>
             <div className="text-xs font-bold text-zinc-200 truncate relative z-10">{data.label}</div>
+
+            {/* Source Handles */}
+            <Handle 
+                type="source" 
+                position={Position.Bottom} 
+                id="s-bottom"
+                className="!w-3.5 !h-3.5 !bg-indigo-500 !border-2 !border-zinc-950 !rounded-full !bottom-[-7px] !shadow-[0_0_10px_rgba(99,102,241,0.8)] z-50 hover:scale-125 transition-transform" 
+            />
+            <Handle 
+                type="source" 
+                position={Position.Right} 
+                id="s-right"
+                className="!w-3.5 !h-3.5 !bg-indigo-500 !border-2 !border-zinc-950 !rounded-full !right-[-7px] !shadow-[0_0_10px_rgba(99,102,241,0.8)] z-50 hover:scale-125 transition-transform" 
+            />
         </div>
     );
 };
@@ -316,12 +418,18 @@ function DnDFlow() {
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const { screenToFlowPosition, deleteElements, toObject, setViewport } = useReactFlow();
     const [dndItem] = useDnD();
-        const [toast, setToast] = useState<string | null>(null);
+    const [toast, setToast] = useState<string | null>(null);
     const [isRunning, setIsRunning] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
     const [showLogs, setShowLogs] = useState(false);
     const [variables, setVariables] = useState<Record<string, any>>({});
     const [activeTab, setActiveTab] = useState<'logs' | 'variables'>('logs');
+
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
 
     const showToast = useCallback((msg: string) => {
         setToast(msg);
@@ -335,7 +443,6 @@ function DnDFlow() {
     const runWorkflow = useCallback(async () => {
         if (isRunning || nodes.length === 0) return;
 
-        // Reset variables and logs on restart
         setVariables({});
         setLogs([]);
 
@@ -399,14 +506,11 @@ function DnDFlow() {
     const selectedEdges = edges.filter((edge) => Boolean(edge.selected));
     const selectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
     const hasSelection = selectedNodes.length > 0 || selectedEdges.length > 0;
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
     const selectedNodeData = (nodes.find((node) => node.id === selectedNodeId) as
         | Node<{ label?: string; [key: string]: unknown }>
         | undefined) ?? null;
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const editingNode = (nodes.find((node) => node.id === editingNodeId) as
         | Node<{ label?: string; [key: string]: unknown }>
         | undefined) ?? null;
@@ -501,7 +605,7 @@ function DnDFlow() {
                 id: getId(),
                 type: nodeType,
                 position,
-                data: { label: nodeLabel, nodeType: nodeConfigType },
+                data: { label: nodeLabel, nodeType: nodeConfigType, prompt: nodeConfigType === 'prompt' ? 'Summarize topic: {{input}}' : undefined },
             };
 
             setNodes((nds) => nds.concat(newNode));
@@ -509,8 +613,26 @@ function DnDFlow() {
         [screenToFlowPosition, dndItem, setNodes]
     );
 
+    const nodesWithHandlers = React.useMemo(() => {
+        return nodes.map((node) => ({
+            ...node,
+            data: {
+                ...node.data,
+                onEditPrompt: (idToEdit: string) => {
+                    setEditingNodeId(idToEdit);
+                    setIsModalOpen(true);
+                },
+            },
+        }));
+    }, [nodes]);
+
+    const handleApplyPromptPreset = (key: string, presetText: string) => {
+        if (!editingNodeId) return;
+        updateEditingNodeData(key, presetText);
+    };
+
     return (
-        <div className="w-full h-[64vh] min-h-[500px] border border-zinc-900 rounded-2xl overflow-hidden bg-zinc-950 relative shadow-2xl">
+        <div className="w-full h-[calc(100vh-200px)] min-h-[750px] border border-zinc-900 rounded-2xl overflow-hidden bg-zinc-950 relative shadow-2xl">
             <Sidebar />
             <div className="w-full h-full relative" ref={reactFlowWrapper}>
                 {/* Control Action Bar */}
@@ -580,7 +702,7 @@ function DnDFlow() {
                     </button>
                 </div>
 
-                                {showLogs && (
+                {showLogs && (
                     <div className="absolute bottom-4 left-4 z-20 w-[420px] max-h-72 bg-zinc-900/95 border border-zinc-800 rounded-lg p-3 shadow-2xl backdrop-blur overflow-y-auto text-xs font-mono text-zinc-300 flex flex-col gap-2">
                         <div className="flex justify-between items-center pb-1 border-b border-zinc-800 font-semibold text-zinc-400">
                             <div className="flex gap-2">
@@ -663,7 +785,7 @@ function DnDFlow() {
                 )}
 
                 <ReactFlow
-                    nodes={nodes}
+                    nodes={nodesWithHandlers}
                     edges={edges}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
@@ -682,7 +804,7 @@ function DnDFlow() {
             </div>
 
             {isSidebarOpen && selectedNodeData && (
-                <aside className="absolute top-4 right-4 bottom-4 z-20 w-72 p-5 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl text-zinc-150 flex flex-col gap-4 select-none shadow-2xl overflow-y-auto scrollbar-thin text-left">
+                <aside className="absolute top-4 right-4 bottom-4 z-20 w-80 p-5 bg-zinc-950/85 backdrop-blur-md border border-zinc-900/80 rounded-xl text-zinc-150 flex flex-col gap-4 select-none shadow-2xl overflow-y-auto scrollbar-thin text-left">
                     <button
                         onClick={() => setIsSidebarOpen(false)}
                         className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-200 text-sm cursor-pointer transition-colors p-1 hover:bg-zinc-900 rounded-md"
@@ -728,6 +850,31 @@ function DnDFlow() {
                                             </option>
                                         ))}
                                     </select>
+                                ) : field.key === 'prompt' || field.key === 'systemPrompt' || field.key === 'arguments' ? (
+                                    <div className="flex flex-col gap-1.5">
+                                        <textarea
+                                            rows={4}
+                                            className="w-full rounded-xl bg-zinc-900/80 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:border-sky-500 transition-colors font-mono leading-relaxed"
+                                            placeholder="Enter text template (use {{variable}} to bind variables)..."
+                                            value={String(selectedNodeData.data?.[field.key] ?? '')}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setNodes((nds) =>
+                                                    nds.map((node) =>
+                                                        node.id === selectedNodeId
+                                                            ? {
+                                                                ...node,
+                                                                data: {
+                                                                    ...node.data,
+                                                                    [field.key]: val,
+                                                                },
+                                                            }
+                                                            : node
+                                                    )
+                                                );
+                                            }}
+                                        />
+                                    </div>
                                 ) : (
                                     <input
                                         className="w-full rounded-xl bg-zinc-900/60 px-3 py-2 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors font-medium"
@@ -755,10 +902,10 @@ function DnDFlow() {
                 </aside>
             )}
 
-            {/* Glassmorphic Settings Modal Popup Triggered on Double Click */}
+            {/* Glassmorphic Settings Modal Popup Triggered on Double Click or Prompt Edit Button */}
             {isModalOpen && editingNode && (
                 <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-200">
-                    <div className="bg-zinc-950 border border-zinc-900 w-full max-w-md rounded-2xl p-6 shadow-2xl relative flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200">
+                    <div className="bg-zinc-950 border border-zinc-900 w-full max-w-lg rounded-2xl p-6 shadow-2xl relative flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200">
                         {/* Close button */}
                         <button
                             onClick={() => setIsModalOpen(false)}
@@ -770,14 +917,15 @@ function DnDFlow() {
                         <div className="flex items-center gap-2 pb-2 border-b border-zinc-900">
                             <Settings className="w-4 h-4 text-cyan-400" />
                             <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider">
-                                {String(editingNode.data?.label ?? 'Node Settings')}
+                                {String(editingNode.data?.label ?? 'Configure Node')}
                             </h3>
                         </div>
 
-                        <div className="flex flex-col gap-4 overflow-y-auto max-h-[50vh] pr-1 py-1">
+                        <div className="flex flex-col gap-4 overflow-y-auto max-h-[60vh] pr-1 py-1">
                             {(sidebarFieldsByType[getNodeConfigType(editingNode)] || []).map((field) => (
                                 <div key={field.key} className="flex flex-col gap-1.5">
                                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{field.label}</label>
+                                    
                                     {fieldOptions[field.key] ? (
                                         <select
                                             className="w-full rounded-xl bg-zinc-900/60 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-850 hover:border-zinc-800 focus:outline-none focus:border-zinc-700 transition-colors cursor-pointer"
@@ -790,6 +938,51 @@ function DnDFlow() {
                                                 </option>
                                             ))}
                                         </select>
+                                    ) : field.key === 'prompt' || field.key === 'systemPrompt' || field.key === 'arguments' ? (
+                                        <div className="flex flex-col gap-2">
+                                            {/* Prompt Presets Quick Toolbar */}
+                                            <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                                                <span className="text-zinc-500 font-bold">Quick Presets:</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleApplyPromptPreset(field.key, "Summarize the following topic accurately:\n\n{{input_text}}")}
+                                                    className="px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-300 hover:bg-sky-900 transition-colors flex items-center gap-1"
+                                                >
+                                                    <FileText className="w-3 h-3 text-sky-400" /> Summarize
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleApplyPromptPreset(field.key, "Answer the user question based on context:\nContext: {{context}}\nQuestion: {{question}}")}
+                                                    className="px-2 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-300 hover:bg-purple-900 transition-colors flex items-center gap-1"
+                                                >
+                                                    <HelpCircle className="w-3 h-3 text-purple-400" /> Q&A Answer
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleApplyPromptPreset(field.key, "Create a structured 5-day study plan for:\n{{syllabus_text}}")}
+                                                    className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 text-emerald-300 hover:bg-emerald-900 transition-colors flex items-center gap-1"
+                                                >
+                                                    <BookOpen className="w-3 h-3 text-emerald-400" /> Study Plan
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const current = String(editingNode.data?.[field.key] ?? '');
+                                                        handleApplyPromptPreset(field.key, current + " {{user_input}}");
+                                                    }}
+                                                    className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 transition-colors"
+                                                >
+                                                    {"+ {{var}}"}
+                                                </button>
+                                            </div>
+                                            <textarea
+                                                rows={5}
+                                                className="w-full rounded-xl bg-zinc-900/80 px-3 py-2.5 text-zinc-200 text-xs border border-zinc-800 hover:border-zinc-700 focus:outline-none focus:border-sky-500 transition-colors font-mono leading-relaxed"
+                                                placeholder="Enter prompt instructions (use {{variable_name}} to inject input data)..."
+                                                value={String(editingNode.data?.[field.key] ?? '')}
+                                                onChange={(e) => updateEditingNodeData(field.key, e.target.value)}
+                                            />
+                                        </div>
                                     ) : field.key === 'apiKey' ? (
                                         <input
                                             type="password"

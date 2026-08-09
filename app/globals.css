@@ -239,4 +239,28 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: oklch(0.35 0.12 250 / 60%) oklch(0.12 0 0);
-}
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(6, 182, 212, 0.8);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+.react-flow__edge-path {
+  stroke-width: 2px !important;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6 !important;
+  stroke: #06b6d4 !important;
+  filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.8));
+}
+

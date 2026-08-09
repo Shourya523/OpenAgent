@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 export type DnDItem = {
     type: string;
     label: string;
+    nodeType?: string;
 };
 
 type DnDContextType = [DnDItem | null, React.Dispatch<React.SetStateAction<DnDItem | null>>];

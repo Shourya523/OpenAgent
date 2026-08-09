@@ -88,19 +88,16 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-center lg:justify-start w-full mt-2">
             <AuroraButton
-              onClick={() => router.push("/builder")}
-              label="Launch Builder"
-              beamColor="59, 130, 246"
+              onClick={() => router.push("/workshop")}
+              label="Start GDG Agent Workshop"
+              beamColor="6, 182, 212"
               duration="4s"
             />
             <AuroraButton
-              onClick={() => {
-                const element = document.getElementById("features")
-                if (element) element.scrollIntoView({ behavior: "smooth" })
-              }}
-              label="Explore Features"
+              onClick={() => router.push("/workshop")}
+              label="Build Your AI Agent"
               variant="inverted"
-              beamColor="14, 165, 233"
+              beamColor="59, 130, 246"
               duration="6s"
             />
           </div>
@@ -177,10 +174,10 @@ export default function Home() {
                   
                   {step.hasLink && (
                     <button
-                      onClick={() => router.push("/builder")}
+                      onClick={() => router.push("/workshop")}
                       className="mt-auto pt-2 text-[10px] font-black text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors cursor-pointer w-fit z-10"
                     >
-                      Open Builder <ArrowRight className="w-3 h-3" />
+                      Start Workshop <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
                 </div>
@@ -286,10 +283,10 @@ export default function Home() {
               </div>
 
               <button
-                onClick={() => router.push("/builder")}
+                onClick={() => router.push("/workshop")}
                 className="mt-6 lg:mt-0 px-4 py-2 bg-blue-950/20 hover:bg-blue-600 border border-blue-900/40 hover:border-blue-500/50 text-blue-400 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-blue-950/10 cursor-pointer w-fit"
               >
-                Try Building Flow <ArrowRight className="w-3.5 h-3.5" />
+                Launch Workshop Agent <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
